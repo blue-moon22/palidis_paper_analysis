@@ -1,0 +1,3 @@
+[submodule "data/ISC"]
+	path = data/ISC
+	url = https://github.com/blue-moon22/ISC.git
