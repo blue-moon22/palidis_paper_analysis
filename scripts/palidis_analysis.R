@@ -2,6 +2,7 @@ library(stringr)
 library(dplyr)
 library(ggplot2)
 library(igraph)
+library(tidyr)
 
 # Number of ISs
 info_files <- list.files("data/ISC/protocols/palidis_output/v3.1.0", pattern = "*_insertion_sequences_info.txt", full.names = TRUE)
@@ -21,8 +22,40 @@ length(is_info$IS_name) # Number of ISs found
 write.csv(is_info, "supplementary/Supplementary_Data_2.csv", quote = FALSE, row.names = FALSE)
 
 # Get unique ISs
-is_unique <- read.delim("data/ISC/insertion_sequence_catalogue_info.txt", stringsAsFactors = FALSE)
-sum(unique(is_info$IS_name) %in% is_unique$IS_name)
+isc <- read.delim("data/ISC/insertion_sequence_catalogue_info.txt", stringsAsFactors = FALSE)
+sum(unique(is_info$IS_name) %in% isc$IS_name)
+isc_current <- isc[isc$IS_name %in% unique(is_info$IS_name),]
+isc_current$length <- as.integer(sapply(gsub("IS_length_", "", isc_current$IS_name), function(x) str_split(x, "-")[[1]][1]))
+
+# Plot length of ISs
+tiff("figures/is_length.tiff", width=2000, height=2000, res = 400)
+ggplot(data = isc_current, aes(1:nrow(isc_current), sort(length))) +
+  geom_point() +
+  theme_minimal() +
+  scale_y_continuous(breaks = seq(0, max(isc_current$length)+500, by = 500)) +
+  scale_x_continuous(breaks = seq(0, nrow(isc_current)+100, by = 100)) +
+  ylab("IS length") + xlab("n of ISC")
+dev.off()
+min(isc_current$length) # Minimum IS length
+max(isc_current$length) # Maximum IS length
+
+# Plot transposases
+isc_transposase <- isc_current %>%
+  mutate(description = strsplit(as.character(description), ";")) %>% 
+  unnest(description) %>%
+  group_by(description) %>%
+  summarise(n = n())
+isc_transposase$description = factor(isc_transposase$description, levels=unique(sort(isc_transposase$description, decreasing = TRUE)))
+length(unique(isc_transposase$description)) # Unique transposases
+
+tiff("figures/transposase.tiff", width=4000, height=4000, res = 400)
+ggplot(data = isc_transposase, aes(description, n)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  ylab("Number") + xlab("Transposase") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  coord_flip()
+dev.off()
 
 # How many are in ISfinder?
 is_finder_out <- read.delim("data/isfinder_081022_blastn_out_tabular_evalue_0.01.txt", header = FALSE, stringsAsFactors = FALSE)
